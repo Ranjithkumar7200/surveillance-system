@@ -1,0 +1,119 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.video-container {
+  position: relative;
+  width: 100%;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: #000;
+  min-height: 360px;
+}
+
+video, canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* Detection status indicator */
+.detection-status {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+}
+
+.detection-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background-color: red;
+  border-radius: 50%;
+  margin-right: 5px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Additional styling for components */
+.notification-badge {
+  position: relative;
+  top: -5px;
+}
+
+/* Ensure content stays within bounds */
+.thumbnail-container {
+  width: 100%;
+  height: 120px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* For mobile responsiveness */
+@media (max-width: 768px) {
+  .video-container {
+    min-height: 240px;
+  }
+}
