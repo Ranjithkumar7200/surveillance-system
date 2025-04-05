@@ -16,7 +16,7 @@ export const notificationService = {
         api_password: process.env.REACT_APP_SMS_API_PASSWORD,
         sender: process.env.REACT_APP_SMS_SENDER,
         to: process.env.REACT_APP_PHONE,
-        message: `${message} Please use this OTP ${distance} for your registration. IDLSMS`,
+        message: `Alert: An unknown person has been detected. ${"Camera 1"} Please check immediately. IDLSMS`,
         priority: process.env.REACT_APP_SMS_PRIORITY,
         e_id: process.env.REACT_APP_SMS_E_ID,
         t_id: process.env.REACT_APP_SMS_T_ID,
