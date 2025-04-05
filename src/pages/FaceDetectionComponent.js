@@ -13,6 +13,7 @@ import {
 } from "react-bootstrap";
 import * as faceapi from "face-api.js";
 import { dbHelper } from "../helpers/dbHelper";
+import { notificationService } from "../services/notificationService";
 
 const FaceDetectionComponent = () => {
   const videoRef = useRef();
@@ -39,11 +40,21 @@ const FaceDetectionComponent = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [dbInitialized, setDbInitialized] = useState(false);
   const [modelsLoading, setModelsLoading] = useState(true);
-  
+  const [notificationConfig, setNotificationConfig] = useState({
+    phoneNumber: "8072974576", // Default phone number as requested
+    email: "support@example.com", // Default support email
+    notifyOnUnknown: true,
+    sendSMS: true,
+    sendEmail: true,
+    showConfigModal: false,
+  });
+
   const isDetectingRef = useRef(false);
   const faceMatchThreshold = 0.6; // Lower values are more strict (0.6 is more strict than 0.7)
   const detectionRef = useRef(null);
   const lastDetectionTime = useRef({});
+  const lastNotificationTime = useRef({});
+  const notificationThrottleTime = 10000;
 
   // Initialize the database when component mounts
   useEffect(() => {
@@ -116,19 +127,22 @@ const FaceDetectionComponent = () => {
   // Load saved data from IndexedDB
   const loadSavedData = async () => {
     if (!dbInitialized) return;
-    
+
     try {
       // Load detection settings
       const settings = await dbHelper.getAllData("settings");
       if (settings && settings.length > 0) {
         setDetectionSettings(settings[0].data);
       }
-
+      const config = await dbHelper.getAllData("notificationConfig");
+      if (config && config.length > 0) {
+        setNotificationConfig({ ...notificationConfig, ...config[0].data });
+      }
       // Load known faces
       const faces = await dbHelper.getAllData("knownFaces");
       if (faces && faces.length > 0) {
         // Convert stored face descriptors back to Float32Array
-        const processedFaces = faces.map(face => ({
+        const processedFaces = faces.map((face) => ({
           ...face,
           faceDescriptor: new Float32Array(Object.values(face.faceDescriptor)),
         }));
@@ -158,7 +172,7 @@ const FaceDetectionComponent = () => {
       console.log("All data loaded from IndexedDB");
     } catch (err) {
       console.error("Error loading saved data:", err);
-      setError("Failed to load saved data: " + err);
+      // setError("Failed to load saved data: " + err);
     }
   };
 
@@ -182,7 +196,7 @@ const FaceDetectionComponent = () => {
   const stopFaceDetection = () => {
     console.log("Stopping face detection");
     stopDetection();
-    
+
     // Save settings if changed
     saveSettings();
   };
@@ -504,17 +518,38 @@ const FaceDetectionComponent = () => {
     // Store in IndexedDB
     try {
       await dbHelper.storeData("detections", newDetection);
-      
+
       // Update state with latest detections (keeping most recent first)
       setDetectedPersons((prevDetections) => {
         const updatedDetections = [newDetection, ...prevDetections];
         const limitedDetections = updatedDetections.slice(0, 20); // Limit displayed items
         return limitedDetections;
       });
-      
+
       // Create notification
       await createNotification(newDetection);
-      
+      if (!isKnown && notificationConfig.notifyOnUnknown) {
+        // Throttle notifications to avoid spamming
+        const now = Date.now();
+        const lastNotifTime = lastNotificationTime.current["unknownAlert"] || 0;
+
+        if (now - lastNotifTime > notificationThrottleTime) {
+          lastNotificationTime.current["unknownAlert"] = now;
+
+          if (notificationConfig.sendSMS || notificationConfig.sendEmail) {
+            try {
+              await notificationService.notifyUnknownPerson(
+                newDetection,
+                notificationConfig.phoneNumber,
+                notificationConfig.sendEmail ? notificationConfig.email : null
+              );
+              console.log("Alert notification sent for unknown person");
+            } catch (err) {
+              console.error("Failed to send notification:", err);
+            }
+          }
+        }
+      }
     } catch (err) {
       console.error("Error storing detection:", err);
     }
@@ -535,7 +570,7 @@ const FaceDetectionComponent = () => {
 
       // Use smaller dimensions for thumbnails to save space
       const thumbnailScale = 0.5; // Reduce to 50% size
-      
+
       // Set dimensions for face close-up
       faceCanvas.width = (box.width + margin * 2) * thumbnailScale;
       faceCanvas.height = (box.height + margin * 2) * thumbnailScale;
@@ -561,10 +596,10 @@ const FaceDetectionComponent = () => {
       // Draw full context image
       const contextCtx = contextCanvas.getContext("2d");
       contextCtx.drawImage(
-        video, 
-        0, 
-        0, 
-        video.videoWidth, 
+        video,
+        0,
+        0,
+        video.videoWidth,
         video.videoHeight,
         0,
         0,
@@ -576,9 +611,9 @@ const FaceDetectionComponent = () => {
       contextCtx.strokeStyle = "#28a745";
       contextCtx.lineWidth = 3;
       contextCtx.strokeRect(
-        box.x * 0.25, 
-        box.y * 0.25, 
-        box.width * 0.25, 
+        box.x * 0.25,
+        box.y * 0.25,
+        box.width * 0.25,
         box.height * 0.25
       );
 
@@ -622,7 +657,7 @@ const FaceDetectionComponent = () => {
     try {
       // Store in IndexedDB
       await dbHelper.storeData("notifications", notification);
-      
+
       // Update state with latest notifications
       setNotifications((prevNotifications) => {
         const updatedNotifications = [notification, ...prevNotifications];
@@ -638,12 +673,15 @@ const FaceDetectionComponent = () => {
   const markNotificationAsRead = async (notificationId) => {
     try {
       // Get the notification from IndexedDB
-      const notification = await dbHelper.getDataById("notifications", notificationId);
+      const notification = await dbHelper.getDataById(
+        "notifications",
+        notificationId
+      );
       if (notification) {
         // Update the notification
         notification.isRead = true;
         await dbHelper.storeData("notifications", notification);
-        
+
         // Update state
         setNotifications((prevNotifications) => {
           return prevNotifications.map((n) =>
@@ -704,12 +742,12 @@ const FaceDetectionComponent = () => {
       // Convert Float32Array to regular array for storage
       const personForStorage = {
         ...newPerson,
-        faceDescriptor: Array.from(newPerson.faceDescriptor)
+        faceDescriptor: Array.from(newPerson.faceDescriptor),
       };
-      
+
       // Store in IndexedDB
       await dbHelper.storeData("knownFaces", personForStorage);
-      
+
       // Update state
       setKnownFaces((prevKnownFaces) => [...prevKnownFaces, newPerson]);
       setShowAddPersonModal(false);
@@ -741,14 +779,14 @@ const FaceDetectionComponent = () => {
     try {
       await dbHelper.storeData("settings", {
         id: "detectionSettings",
-        data: detectionSettings
+        data: detectionSettings,
       });
       setShowSettings(false);
     } catch (err) {
       console.error("Error saving settings:", err);
       setError("Failed to save settings: " + err);
     }
-  }
+  };
   // Get unread notifications count
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 

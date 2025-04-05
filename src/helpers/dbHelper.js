@@ -1,6 +1,6 @@
 export const dbHelper = {
   DB_NAME: "surveillanceDB",
-  DB_VERSION: 1,
+  DB_VERSION: 2,
   db: null,
 
   // Initialize the database
